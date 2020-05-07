@@ -1,41 +1,66 @@
 class UsersController < ApplicationController
-	before_action :correct_user, only: [:edit]
+  before_action :authenticate_user!
+  # before_action :ensure_correct_user(params[:id]), {only: [:edit, :update, :destroy]}
 
   def show
-  	@user = User.find(params[:id])
-  	@books = Book.all
-  	@book = Book.new #new bookの新規投稿で必要（保存処理はbookコントローラー側で実施）
+    @user = User.find(params[:id])
+    @books = @user.books
+    @book = Book.new
+  end
+
+  def create
+      @book.user_id = current_user.id
+      @book = Book.new(book_params)
+   if @book.save
+   flash[:success] = "You have creatad user successfully."
+      redirect_to @book
+    else
+   flash[:danger] = @book.errors.full_messages
+      @books = Book.all
+      render 'index'
+    end
   end
 
   def index
-  	@users = User.all #一覧表示するためにUserモデルのデータを全て変数に入れて取り出す。
-  	@book = Book.new #new bookの新規投稿で必要（保存処理はbookコントローラー側で実施）
-    @user = current_user
-    @books = Book.all
+    @users = User.all
+    @book = Book.new
   end
 
   def edit
-  	@user = User.find(params[:id])
+    @user = User.find(params[:id])
+    if current_user.id != @user.id
+      redirect_to user_path(current_user)
+    end
   end
 
   def update
-  	@user = User.find(params[:id])
-  	if @user.update(user_params)
-  		redirect_to user_path(@user.id), notice: "successfully updated user!"
-  	else
-  		render :edit
-  	end
+    if current_user
+       @user = User.find(params[:id])
+       if @user.update(user_params)
+        flash[:success] = "You have updated user successfully."
+          redirect_to user_path(@user.id)
+         else
+          flash[:danger] = @user.errors.full_messages
+          render "edit"
+       end
+     else
+    end
+   end
+
+  def followings
+    @user = User.find(params[:id])
+    @users = @user.followings
+    render 'show_follow'
+  end
+
+  def followers
+    @user = User.find(params[:id])
+    @users = @user.followers
+    render 'show_follower'
   end
 
   private
   def user_params
-    params.require(:user).permit(:name, :email, :encrypted_password, :introduction, :profile_image)
+    params.require(:user).permit(:name, :profile_image, :introduction)
   end
-  def correct_user
-    user = User.find(params[:id])
-    if user != current_user
-           redirect_to user_path(current_user)
-        end
-    end
-
 end

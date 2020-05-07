@@ -1,34 +1,36 @@
 class User < ApplicationRecord
   # Include default devise modules. Others available are:
   # :confirmable, :lockable, :timeoutable, :trackable and :omniauthable
-    devise :database_authenticatable, :registerable,
-           :recoverable, :rememberable, :validatable
+     devise :database_authenticatable, :registerable,
+         :recoverable, :rememberable, :trackable, :validatable
 
-    validates :name, presence: true, uniqueness: true, length: { in: 2..20 }
-    validates :introduction, length: { maximum: 50 }
-    has_many :books, dependent: :destroy
-    has_many :favorites, dependent: :destroy
-    has_many :book_comments, dependent: :destroy
+  attachment :profile_image
 
-    attachment :profile_image
+  has_many :books
+  has_many :favorites, dependent: :destroy
+  has_many :book_comments, dependent: :destroy
+  validates :name, length: {in: 2..20}
+  validates :introduction, length: {maximum: 50}
 
-    validates_uniqueness_of :name
-    validates_presence_of :name
+  # 能動的関係
+  has_many :relationships, dependent: :destroy
+  has_many :followings, through: :relationships, source: :follow
+  # 受動的関係
+  has_many :reverse_of_relationships, class_name: 'Relationship', foreign_key: 'follow_id', dependent: :destroy
+  has_many :followers, through: :reverse_of_relationships, source: :user
 
-      def self.find_first_by_auth_conditions(warden_conditions)
-	    conditions = warden_conditions.dup
-	    if login = conditions.delete(:login)
-	      where(conditions).where(["name = :value", { :value => name }]).first
-	    else
-	      where(conditions).first
-	    end
-	  end
+  def follow(other_user)
+    unless self == other_user
+      self.relationships.find_or_create_by(follow_id: other_user.id)
+    end
+  end
 
-	 def email_required?
-	   false
-	 end
-	 def email_changed?
-	   false
-	 end
+  def unfollow(other_user)
+    relationship = self.relationships.find_by(follow_id: other_user.id)
+    relationship.destroy if relationship
+  end
 
+  def following?(other_user)
+    self.followings.include?(other_user)
+  end
 end
